@@ -1,0 +1,275 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Complaint Report Card</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;padding:15px;
+  font-family:Arial,sans-serif;
+  background:#eef2f7;color:#1e293b
+}
+.container{
+  max-width:850px;margin:auto;
+  background:white;padding:20px;
+  border-radius:14px;
+  box-shadow:0 4px 15px #0001
+}
+h2{text-align:center;color:#176b45}
+label{display:block;font-weight:bold;margin:12px 0 6px}
+input,select,textarea{
+  width:100%;padding:12px;
+  border:1px solid #cbd5e1;border-radius:7px;
+  font-size:16px;background:white
+}
+textarea{min-height:75px}
+button{
+  border:0;padding:12px;border-radius:7px;
+  color:white;background:#176b45;
+  font-weight:bold;cursor:pointer
+}
+.buttons{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+.buttons button{flex:1}
+.excel{background:#087443}
+.clear{background:#475569}
+.card{
+  margin-top:15px;padding:12px;
+  border:1px solid #dbe2ea;border-radius:8px;
+  overflow-wrap:anywhere
+}
+.card p{margin:8px 0}
+small{color:#64748b}
+</style>
+</head>
+<body>
+<div class="container">
+  <h2>Complaint Report Card</h2>
+
+  <form id="reportForm">
+    <label for="date">Date *</label>
+    <input type="date" id="date" required>
+
+     <label for="area">Hotel Name *</label>
+     <select name="options" id="options">
+  <option value="option1">Wyndham Hotel</option>
+  <option value="option2">The Forum Hotel</option>
+  <option value="option3">Club </option>
+  <option value="option3">Other </option>
+</select>
+   
+
+
+    <label for="area">Area *</label>
+    <input type="text" id="area" placeholder="Enter Area Name" required>
+
+    <label for="complaint">Complaint *</label>
+
+    <textarea id="complaint" placeholder="Enter Complaint Details" required></textarea>
+
+    <label for="status">Status *</label>
+    <select id="status" required>
+      <option value="">Select Status</option>
+      <option>Pending</option>
+      <option>In Progress</option>
+      <option>Done</option>
+      <option>Hold</option>
+    </select>
+
+    <label for="remark">Remark</label>
+    <textarea id="remark" placeholder="Enter Remark"></textarea>
+
+    <label for="doneBy">Done By *</label>
+   <select id="status" required>
+    <option value="">Compalint Done By </option>
+      <option>Rashid</option>
+      <option>Manoj</option>
+      <option>Santosh</option>
+      <option>Shivang</option>
+    </select>
+
+    <div class="buttons">
+      <button type="submit">Save Report</button>
+      <button type="reset" class="clear">Clear Form</button>
+    </div>
+  </form>
+
+  <hr style="margin:24px 0;border:0;border-top:1px solid #ddd">
+
+  <h3>Saved Reports</h3>
+  <label for="searchDate">Date-wise Search</label>
+  <input type="date" id="searchDate">
+
+  <div class="buttons">
+    <button type="button" class="excel" id="excelBtn">Download Excel</button>
+    <button type="button" class="clear" id="allBtn">Show All</button>
+  </div>
+
+  <p id="total">Total Reports: 0</p>
+  <div id="reportList"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const KEY = "complaintReportsV1";
+let reports = [];
+let filterDate = "";
+
+try {
+  const saved = JSON.parse(localStorage.getItem(KEY) || "[]");
+  if (Array.isArray(saved)) reports = saved;
+} catch(e) {}
+
+function today(){
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0,10);
+}
+$("date").value = today();
+
+function saveStorage(){
+  try {
+    localStorage.setItem(KEY, JSON.stringify(reports));
+    return true;
+  } catch(e) {
+    alert("Storage error! Please download your reports.");
+    return false;
+  }
+}
+
+$("reportForm").addEventListener("submit", function(e){
+  e.preventDefault();
+
+  const report = {
+    id: Date.now().toString() + Math.random().toString(36).slice(2),
+    date: $("date").value,
+    area: $("area").value.trim(),
+    complaint: $("complaint").value.trim(),
+    status: $("status").value,
+    remark: $("remark").value.trim(),
+    doneBy: $("doneBy").value.trim()
+  };
+
+  if(!report.date || !report.area || !report.complaint ||
+     !report.status || !report.doneBy){
+    alert("Please fill all required fields.");
+    return;
+  }
+
+  reports.unshift(report);
+  if(!saveStorage()){
+    reports.shift();
+    return;
+  }
+
+  this.reset();
+  $("date").value = today();
+  render();
+  alert("Report saved successfully!");
+});
+
+function render(){
+  const list = $("reportList");
+  list.replaceChildren();
+
+  const rows = reports.filter(r => !filterDate || r.date === filterDate);
+  $("total").textContent = "Showing: " + rows.length +
+    " | Total Reports: " + reports.length;
+
+  if(!rows.length){
+    list.textContent = "No reports found.";
+    return;
+  }
+
+  rows.forEach(r => {
+    const card = document.createElement("div");
+    card.className = "card";
+
+    const title = document.createElement("h3");
+    title.textContent = r.area + " — " + r.date;
+    card.appendChild(title);
+
+    [
+      ["Complaint",r.complaint],
+      ["Status",r.status],
+      ["Remark",r.remark || "-"],
+      ["Done By",r.doneBy]
+    ].forEach(([label,value]) => {
+      const p = document.createElement("p");
+      const b = document.createElement("b");
+      b.textContent = label + ": ";
+      p.append(b,document.createTextNode(value));
+      card.appendChild(p);
+    });
+
+    const del = document.createElement("button");
+    del.textContent = "Delete Report";
+    del.style.background = "#b91c1c";
+    del.addEventListener("click", () => {
+      if(confirm("Delete this report?")){
+        const previous = reports;
+        reports = reports.filter(x => x.id !== r.id);
+        if(saveStorage()) render();
+        else reports = previous;
+      }
+    });
+    card.appendChild(del);
+    list.appendChild(card);
+  });
+}
+
+$("searchDate").addEventListener("change", e => {
+  filterDate = e.target.value;
+  render();
+});
+
+$("allBtn").addEventListener("click", () => {
+  filterDate = "";
+  $("searchDate").value = "";
+  render();
+});
+
+$("excelBtn").addEventListener("click", () => {
+  const rows = reports.filter(r => !filterDate || r.date === filterDate);
+  if(!rows.length){
+    alert("No reports to download.");
+    return;
+  }
+
+  const data = rows.map(r => ({
+    Date:r.date,
+    Area:r.area,
+    Complaint:r.complaint,
+    Status:r.status,
+    Remark:r.remark,
+    "Done By":r.doneBy
+  }));
+
+  if(typeof XLSX !== "undefined"){
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,"Complaint Reports");
+    XLSX.writeFile(wb,"Complaint_Report.xlsx");
+  } else {
+    const esc = v => '"' + String(v ?? "").replace(/"/g,'""') + '"';
+    const csv = "\uFEFF" + [
+      Object.keys(data[0]).map(esc).join(","),
+      ...data.map(r => Object.values(r).map(esc).join(","))
+    ].join("\r\n");
+    const blob = new Blob([csv],{type:"text/csv;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "Complaint_Report.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+});
+
+render();
+</script>
+</body>
+</html>
